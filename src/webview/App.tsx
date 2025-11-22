@@ -1,8 +1,11 @@
 import * as React from "react";
 
+type FileLanguage = "ts" | "tsx" | "js" | "jsx";
+
 interface FileStructure {
   name: string;
   type: "file" | "folder";
+  language?: FileLanguage;
   children?: FileStructure[];
 }
 
@@ -26,7 +29,10 @@ const App: React.FC = () => {
     const type = obj.type === "folder" ? "folder" : "file";
 
     if (obj.type === "file") {
-      return `${spaces}{\n${spaces}  name: '${obj.name}',\n${spaces}  type: '${type}',\n${spaces}}`;
+      const languageStr = obj.language
+        ? `\n${spaces}  language: '${obj.language}',`
+        : "";
+      return `${spaces}{\n${spaces}  name: '${obj.name}',\n${spaces}  type: '${type}',${languageStr}\n${spaces}}`;
     }
 
     if (obj.children && obj.children.length > 0) {
