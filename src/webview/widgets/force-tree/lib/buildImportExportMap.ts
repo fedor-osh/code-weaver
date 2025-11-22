@@ -24,6 +24,9 @@ export interface ImportExportMap {
   exportToReExportFiles: Map<string, Set<string>>;
   // Map from re-exporting file ID to original export IDs it re-exports
   reExportFileToExports: Map<string, Set<string>>;
+  // Map from export ID -> re-exporting file ID -> importing file IDs
+  // This tracks which files import an export through which re-exporting file
+  exportToReExportToFiles: Map<string, Map<string, Set<string>>>;
 }
 
 /**
@@ -113,6 +116,7 @@ export function buildImportExportMap(
     reExports: new Map(),
     exportToReExportFiles: new Map(),
     reExportFileToExports: new Map(),
+    exportToReExportToFiles: new Map(),
   };
 
   // First pass: collect all files and exports
@@ -501,6 +505,17 @@ export function buildImportExportMap(
                     map.exportToFiles.set(sourceExportId, new Set());
                   }
                   map.exportToFiles.get(sourceExportId)!.add(fs.id);
+
+                  // Track the re-export chain: export -> re-exporting file -> importing file
+                  if (!map.exportToReExportToFiles.has(sourceExportId)) {
+                    map.exportToReExportToFiles.set(sourceExportId, new Map());
+                  }
+                  const reExportMap =
+                    map.exportToReExportToFiles.get(sourceExportId)!;
+                  if (!reExportMap.has(importedFile.id)) {
+                    reExportMap.set(importedFile.id, new Set());
+                  }
+                  reExportMap.get(importedFile.id)!.add(fs.id);
 
                   // Also add to fileToExports
                   if (!map.fileToExports.has(fs.id)) {
