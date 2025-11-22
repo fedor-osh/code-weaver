@@ -32,6 +32,13 @@ export function drawAllHighlightLines(
     return `${fromId}-${toId}`;
   };
 
+  // Helper function to determine if line should be dashed (only for file-to-export relations)
+  const shouldBeDashed = (from: any, to: any) => {
+    const fromType = from?.data?.type;
+    const toType = to?.data?.type;
+    return (fromType === "file" && toType === "export") || (fromType === "export" && toType === "file");
+  };
+
   // Iterate through all nodes and draw their relations
   nodes.forEach((node) => {
     if (!node.data?.id || node.x === undefined || node.y === undefined) {
@@ -113,7 +120,7 @@ export function drawAllHighlightLines(
                 .attr("stroke", "#ef4444")
                 .attr("stroke-width", 2)
                 .attr("stroke-opacity", 0.6)
-                .attr("stroke-dasharray", "4,4")
+                .attr("stroke-dasharray", shouldBeDashed(node, intermediateNode) ? "4,4" : null)
                 .attr("marker-end", "url(#arrowhead-red)")
                 .style("filter", "drop-shadow(0 0 2px rgba(239, 68, 68, 0.36))");
             }
@@ -144,7 +151,7 @@ export function drawAllHighlightLines(
                       .attr("stroke", "#ef4444")
                       .attr("stroke-width", 2)
                       .attr("stroke-opacity", 0.6)
-                      .attr("stroke-dasharray", "4,4")
+                      .attr("stroke-dasharray", shouldBeDashed(intermediateNode, importingFileNode) ? "4,4" : null)
                       .attr("marker-end", "url(#arrowhead-red)")
                       .style(
                         "filter",
@@ -297,7 +304,7 @@ export function drawAllHighlightLines(
               .attr("stroke", "#ef4444")
               .attr("stroke-width", 2)
               .attr("stroke-opacity", 0.6)
-              .attr("stroke-dasharray", "4,4")
+              .attr("stroke-dasharray", shouldBeDashed(node, intermediateNode) ? "4,4" : null)
               .attr("marker-end", "url(#arrowhead-red)")
               .style("filter", "drop-shadow(0 0 2px rgba(239, 68, 68, 0.36))");
           }
@@ -325,7 +332,7 @@ export function drawAllHighlightLines(
                     .attr("stroke", "#ef4444")
                     .attr("stroke-width", 2)
                     .attr("stroke-opacity", 0.6)
-                    .attr("stroke-dasharray", "4,4")
+                    .attr("stroke-dasharray", shouldBeDashed(intermediateNode, exportNode) ? "4,4" : null)
                     .attr("marker-end", "url(#arrowhead-red)")
                     .style(
                       "filter",

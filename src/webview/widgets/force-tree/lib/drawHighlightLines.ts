@@ -47,6 +47,13 @@ export function drawHighlightLines(
     opacity: number = 0.8
   ) => {
     if (!to || to.x === undefined || to.y === undefined) return;
+    
+    // Use dashed line only for relations between file and export
+    const fromType = from.data?.type;
+    const toType = to.data?.type;
+    const isFileToExport = (fromType === "file" && toType === "export") || (fromType === "export" && toType === "file");
+    const shouldBeDashed = isFileToExport;
+    
     highlight
       .append("line")
       .datum({ source: from, target: to })
@@ -57,7 +64,7 @@ export function drawHighlightLines(
       .attr("stroke", "#ef4444")
       .attr("stroke-width", 2)
       .attr("stroke-opacity", opacity)
-      .attr("stroke-dasharray", isDashed ? "4,4" : null)
+      .attr("stroke-dasharray", shouldBeDashed ? "4,4" : null)
       .attr("marker-end", "url(#arrowhead-red)")
       .style("filter", `drop-shadow(0 0 2px rgba(239, 68, 68, ${opacity * 0.6}))`);
   };
