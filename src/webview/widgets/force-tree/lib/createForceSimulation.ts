@@ -5,16 +5,21 @@ function isProminentFolderLink(d: any): boolean {
   const sourceIsFolder = d.source.data.type === "folder";
   const targetIsFolder = d.target.data.type === "folder";
   const targetDepth = d.target.depth;
-  
+
   // First two levels: root (depth 0) to first level (depth 1), and first level (depth 1) to second level (depth 2)
-  return sourceIsFolder && targetIsFolder && (targetDepth === 1 || targetDepth === 2);
+  return (
+    sourceIsFolder && targetIsFolder && (targetDepth === 1 || targetDepth === 2)
+  );
 }
 
 export function createForceSimulation(nodes: any[], links: any[]) {
   // Identify prominent folder nodes (root and first two levels of folders)
   const prominentFolderIds = new Set<string>();
   nodes.forEach((node: any) => {
-    if (node.data.type === "folder" && (node.depth === 0 || node.depth === 1 || node.depth === 2)) {
+    if (
+      node.data.type === "folder" &&
+      (node.depth === 0 || node.depth === 1 || node.depth === 2)
+    ) {
       if (node.data.id) {
         prominentFolderIds.add(node.data.id);
       }
@@ -41,24 +46,29 @@ export function createForceSimulation(nodes: any[], links: any[]) {
         .strength((d: any) => {
           // Stronger link force for prominent folder links
           if (isProminentFolderLink(d)) return 1.5;
-          return 1;
+          return 0.5; // Reduced strength for other links to allow more spread
         })
     )
-    .force("charge", d3.forceManyBody().strength((d: any) => {
-      // Stronger repulsion for prominent folder nodes to keep space around them
-      if (prominentFolderIds.has(d.data.id)) {
-        return -200;
-      }
-      return -50;
-    }))
-    .force("collision", d3.forceCollide().radius((d: any) => {
-      // Larger collision radius for prominent folder nodes to prevent crowding
-      if (prominentFolderIds.has(d.data.id)) {
-        return 40;
-      }
-      return 8;
-    }))
-    .force("x", d3.forceX())
-    .force("y", d3.forceY());
+    .force(
+      "charge",
+      d3.forceManyBody().strength((d: any) => {
+        // Stronger repulsion for prominent folder nodes to keep space around them
+        if (prominentFolderIds.has(d.data.id)) {
+          return -200;
+        }
+        return -30; // Reduced general repulsion to allow more spread
+      })
+    )
+    .force(
+      "collision",
+      d3.forceCollide().radius((d: any) => {
+        // Larger collision radius for prominent folder nodes to prevent crowding
+        if (prominentFolderIds.has(d.data.id)) {
+          return 40;
+        }
+        return 8;
+      })
+    )
+    .force("x", d3.forceX().strength(0.05)) // Much weaker centering force
+    .force("y", d3.forceY().strength(0.05)); // Much weaker centering force
 }
-
