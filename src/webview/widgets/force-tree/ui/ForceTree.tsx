@@ -13,6 +13,8 @@ import { createNodes } from "../lib/createNodes";
 import { createZoomBehavior } from "../lib/createZoomBehavior";
 import { setupSimulationTick } from "../lib/setupSimulationTick";
 import { cleanup } from "../lib/cleanup";
+import { drawAllHighlightLines } from "../lib/drawAllHighlightLines";
+import { removeHighlightLines } from "../lib/drawHighlightLines";
 
 interface ForceTreeProps {
   structure: FileStructure;
@@ -26,6 +28,7 @@ const CHART_CONFIG = {
 export function ForceTree({ structure }: ForceTreeProps) {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [zoomLevel, setZoomLevel] = React.useState(1);
+  const [showAllRelations, setShowAllRelations] = React.useState(false);
   const zoomBehaviorRef = React.useRef<d3.ZoomBehavior<
     SVGSVGElement,
     unknown
@@ -37,6 +40,21 @@ export function ForceTree({ structure }: ForceTreeProps) {
     null,
     undefined
   > | null>(null);
+  const allRelationsGroupRef = React.useRef<d3.Selection<
+    SVGGElement,
+    unknown,
+    null,
+    undefined
+  > | null>(null);
+  const containerRef = React.useRef<d3.Selection<
+    SVGGElement,
+    unknown,
+    null,
+    undefined
+  > | null>(null);
+  const nodesRef = React.useRef<any[]>([]);
+  const allNodesMapRef = React.useRef<Map<string, any>>(new Map());
+  const importExportMapRef = React.useRef<any>(null);
 
   React.useEffect(() => {
     if (!svgRef.current) return;
@@ -65,12 +83,16 @@ export function ForceTree({ structure }: ForceTreeProps) {
         allNodesMap.set(node.data.id, node);
       }
     });
+    allNodesMapRef.current = allNodesMap;
+    nodesRef.current = nodes;
+    importExportMapRef.current = importExportMap;
 
     // Create force simulation
     const simulation = createForceSimulation(nodes, links);
 
     // Create SVG and container
     const { svg, container } = createSvg(svgRef.current, CHART_CONFIG);
+    containerRef.current = container;
 
     // Create tooltip positioned at bottom center
     const containerElement = svgRef.current.parentElement;
@@ -95,7 +117,13 @@ export function ForceTree({ structure }: ForceTreeProps) {
     });
 
     // Setup simulation tick handler
-    setupSimulationTick(simulation, link, node, highlightGroupRef);
+    setupSimulationTick(
+      simulation,
+      link,
+      node,
+      highlightGroupRef,
+      allRelationsGroupRef
+    );
 
     // Setup zoom behavior
     const zoom = createZoomBehavior(svg, container, {
@@ -111,8 +139,42 @@ export function ForceTree({ structure }: ForceTreeProps) {
     return () => {
       cleanup(svgRef.current!, simulation, tooltip);
       highlightGroupRef.current = null;
+      allRelationsGroupRef.current = null;
     };
   }, [structure]);
+
+  // Handle show all relations toggle
+  React.useEffect(() => {
+    if (!containerRef.current || !nodesRef.current.length) return;
+
+    if (showAllRelations) {
+      // Draw all relations - use a small delay to ensure nodes have positions
+      const drawRelations = () => {
+        allRelationsGroupRef.current = drawAllHighlightLines({
+          container: containerRef.current!,
+          nodes: nodesRef.current,
+          allNodesMap: allNodesMapRef.current,
+          importExportMap: importExportMapRef.current,
+        });
+      };
+
+      // Try to draw immediately
+      drawRelations();
+
+      // Also try after a short delay in case nodes don't have positions yet
+      const timeoutId = setTimeout(() => {
+        drawRelations();
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    } else {
+      // Remove all relations
+      removeHighlightLines(allRelationsGroupRef.current);
+      allRelationsGroupRef.current = null;
+    }
+  }, [showAllRelations]);
 
   const handleResetZoom = () => {
     if (!svgRef.current || !zoomBehaviorRef.current) return;
@@ -138,6 +200,19 @@ export function ForceTree({ structure }: ForceTreeProps) {
         >
           ⟲
         </button>
+      </div>
+      <div className='absolute top-4 left-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-10'>
+        <label className='flex items-center gap-2 cursor-pointer'>
+          <input
+            type='checkbox'
+            checked={showAllRelations}
+            onChange={(e) => setShowAllRelations(e.target.checked)}
+            className='w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500'
+          />
+          <span className='text-sm text-gray-700 font-medium'>
+            Show All relations
+          </span>
+        </label>
       </div>
     </div>
   );

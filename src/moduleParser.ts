@@ -23,19 +23,20 @@ export function parseModule(filePath: string): ModuleInfo | null {
     const sourceCode = fs.readFileSync(filePath, "utf-8");
     const ext = filePath.toLowerCase();
     const isJSX = ext.endsWith(".jsx") || ext.endsWith(".tsx");
-    const isJS = ext.endsWith(".js") || ext.endsWith(".mjs") || ext.endsWith(".cjs");
-    
+    const isJS =
+      ext.endsWith(".js") || ext.endsWith(".mjs") || ext.endsWith(".cjs");
+
     // Set appropriate language version for JSX files
-    const languageVersion = isJSX 
-      ? ts.ScriptTarget.Latest 
+    const languageVersion = isJSX
+      ? ts.ScriptTarget.Latest
       : ts.ScriptTarget.Latest;
-    
+
     const sourceFile = ts.createSourceFile(
       filePath,
       sourceCode,
       languageVersion,
       true,
-      isJSX ? ts.ScriptKind.JSX : (isJS ? ts.ScriptKind.JS : ts.ScriptKind.TS)
+      isJSX ? ts.ScriptKind.JSX : isJS ? ts.ScriptKind.JS : ts.ScriptKind.TS
     );
 
     const imports: ImportInfo[] = [];
@@ -61,7 +62,9 @@ export function parseModule(filePath: string): ModuleInfo | null {
             // Named imports
             if (importClause.namedBindings) {
               if (ts.isNamespaceImport(importClause.namedBindings)) {
-                importNames.push(`* as ${importClause.namedBindings.name.text}`);
+                importNames.push(
+                  `* as ${importClause.namedBindings.name.text}`
+                );
               } else if (ts.isNamedImports(importClause.namedBindings)) {
                 importClause.namedBindings.elements.forEach((element) => {
                   const name = element.name.text;
@@ -141,9 +144,7 @@ export function parseModule(filePath: string): ModuleInfo | null {
       // Handle variable statements with export keyword
       if (
         ts.isVariableStatement(node) &&
-        node.modifiers?.some(
-          (mod) => mod.kind === ts.SyntaxKind.ExportKeyword
-        )
+        node.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword)
       ) {
         node.declarationList.declarations.forEach((declaration) => {
           if (ts.isIdentifier(declaration.name)) {
@@ -158,9 +159,7 @@ export function parseModule(filePath: string): ModuleInfo | null {
       if (
         ts.isFunctionDeclaration(node) &&
         node.name &&
-        node.modifiers?.some(
-          (mod) => mod.kind === ts.SyntaxKind.ExportKeyword
-        )
+        node.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword)
       ) {
         const isDefault = node.modifiers.some(
           (mod) => mod.kind === ts.SyntaxKind.DefaultKeyword
@@ -175,9 +174,7 @@ export function parseModule(filePath: string): ModuleInfo | null {
       if (
         ts.isClassDeclaration(node) &&
         node.name &&
-        node.modifiers?.some(
-          (mod) => mod.kind === ts.SyntaxKind.ExportKeyword
-        )
+        node.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword)
       ) {
         const isDefault = node.modifiers.some(
           (mod) => mod.kind === ts.SyntaxKind.DefaultKeyword
@@ -192,9 +189,7 @@ export function parseModule(filePath: string): ModuleInfo | null {
       if (
         (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) &&
         node.name &&
-        node.modifiers?.some(
-          (mod) => mod.kind === ts.SyntaxKind.ExportKeyword
-        )
+        node.modifiers?.some((mod) => mod.kind === ts.SyntaxKind.ExportKeyword)
       ) {
         exports.push({
           name: node.name.text,
@@ -216,4 +211,3 @@ export function parseModule(filePath: string): ModuleInfo | null {
     return null;
   }
 }
-
