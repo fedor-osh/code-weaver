@@ -55,6 +55,13 @@ export function ForceTree({ structure }: ForceTreeProps) {
   const nodesRef = React.useRef<any[]>([]);
   const allNodesMapRef = React.useRef<Map<string, any>>(new Map());
   const importExportMapRef = React.useRef<any>(null);
+  const pinnedNodeRef = React.useRef<any>(null);
+  const tooltipRef = React.useRef<d3.Selection<
+    HTMLDivElement,
+    unknown,
+    null,
+    undefined
+  > | null>(null);
 
   React.useEffect(() => {
     if (!svgRef.current) return;
@@ -101,6 +108,19 @@ export function ForceTree({ structure }: ForceTreeProps) {
       chartWidth: CHART_CONFIG.width,
       chartHeight: CHART_CONFIG.height,
     });
+    tooltipRef.current = tooltip;
+
+    // Setup global unpin function for button click
+    const handleUnpin = () => {
+      pinnedNodeRef.current = null;
+      if (tooltipRef.current) {
+        tooltipRef.current.style("opacity", 0);
+        tooltipRef.current.style("pointer-events", "none");
+      }
+      removeHighlightLines(highlightGroupRef.current);
+      highlightGroupRef.current = null;
+    };
+    (window as any).unpinTooltip = handleUnpin;
 
     // Create links
     const link = createLinks(container, links);
@@ -114,6 +134,8 @@ export function ForceTree({ structure }: ForceTreeProps) {
       importExportMap,
       allNodesMap,
       highlightGroupRef,
+      pinnedNodeRef,
+      onUnpin: handleUnpin,
     });
 
     // Setup simulation tick handler
@@ -140,6 +162,8 @@ export function ForceTree({ structure }: ForceTreeProps) {
       cleanup(svgRef.current!, simulation, tooltip);
       highlightGroupRef.current = null;
       allRelationsGroupRef.current = null;
+      pinnedNodeRef.current = null;
+      delete (window as any).unpinTooltip;
     };
   }, [structure]);
 

@@ -23,10 +23,11 @@ export function createTooltip(options: CreateTooltipOptions): d3.Selection<HTMLD
     .style("opacity", 0)
     .style("z-index", 1000)
     .style("box-shadow", "0 2px 8px rgba(0,0,0,0.3)")
-    .style("max-width", "400px")
-    .style("left", "50%")
+    .style("max-width", "500px")
+    .style("max-height", "400px")
+    .style("overflow-y", "auto")
+    .style("left", "20px")
     .style("bottom", "20px")
-    .style("transform", "translateX(-50%)")
-    .style("text-align", "center");
+    .style("text-align", "left");
 }
 

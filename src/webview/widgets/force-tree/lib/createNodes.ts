@@ -19,6 +19,8 @@ export interface CreateNodesOptions {
   importExportMap: ImportExportMap;
   allNodesMap: Map<string, any>;
   highlightGroupRef: React.MutableRefObject<d3.Selection<SVGGElement, unknown, null, undefined> | null>;
+  pinnedNodeRef: React.MutableRefObject<any>;
+  onUnpin: () => void;
 }
 
 export function createNodes(options: CreateNodesOptions) {
@@ -30,6 +32,8 @@ export function createNodes(options: CreateNodesOptions) {
     importExportMap,
     allNodesMap,
     highlightGroupRef,
+    pinnedNodeRef,
+    onUnpin,
   } = options;
 
   const drag = createDragBehavior(simulation);
@@ -46,10 +50,17 @@ export function createNodes(options: CreateNodesOptions) {
     .style("cursor", "pointer")
     .call(drag as any)
     .on("mouseover", function (event: any, d: any) {
-      const content = getTooltipContent(d.data);
+      // Don't update tooltip if another node is pinned
+      if (pinnedNodeRef.current && pinnedNodeRef.current.data.id !== d.data.id) {
+        return;
+      }
+
+      const isPinned = pinnedNodeRef.current?.data.id === d.data.id;
+      const content = getTooltipContent(d.data, importExportMap, allNodesMap, isPinned, onUnpin);
       tooltip
         .html(content)
-        .style("opacity", 1);
+        .style("opacity", 1)
+        .style("pointer-events", isPinned ? "auto" : "none");
 
       // Calculate relations for this node
       const { targetNodeIds, intermediateNodes } = calculateNodeRelations(d, importExportMap);
@@ -67,6 +78,11 @@ export function createNodes(options: CreateNodesOptions) {
       }
     })
     .on("mousemove", function (event: any, d: any) {
+      // Don't update highlight lines if another node is pinned
+      if (pinnedNodeRef.current && pinnedNodeRef.current.data.id !== d.data.id) {
+        return;
+      }
+
       // Update highlight lines position
       const { targetNodeIds, intermediateNodes } = calculateNodeRelations(d, importExportMap);
 
@@ -85,8 +101,46 @@ export function createNodes(options: CreateNodesOptions) {
         });
       }
     })
-    .on("mouseout", function () {
+    .on("click", function (event: any, d: any) {
+      event.stopPropagation();
+      
+      // Toggle pin state
+      if (pinnedNodeRef.current?.data.id === d.data.id) {
+        // Unpin - use the callback
+        onUnpin();
+      } else {
+        // Pin this node
+        pinnedNodeRef.current = d;
+        const content = getTooltipContent(d.data, importExportMap, allNodesMap, true, onUnpin);
+        tooltip
+          .html(content)
+          .style("opacity", 1)
+          .style("pointer-events", "auto");
+
+        // Calculate relations for this node
+        const { targetNodeIds, intermediateNodes } = calculateNodeRelations(d, importExportMap);
+
+        if (targetNodeIds.size > 0 || intermediateNodes.size > 0) {
+          highlightGroupRef.current = drawHighlightLines({
+            container,
+            sourceNode: d,
+            targetNodeIds,
+            intermediateNodes,
+            allNodes: allNodesMap,
+            highlightGroup: highlightGroupRef.current,
+            importExportMap,
+          });
+        }
+      }
+    })
+    .on("mouseout", function (event: any, d: any) {
+      // Don't hide tooltip if this node is pinned
+      if (pinnedNodeRef.current?.data.id === d.data.id) {
+        return;
+      }
+      
       tooltip.style("opacity", 0);
+      tooltip.style("pointer-events", "none");
       removeHighlightLines(highlightGroupRef.current);
       highlightGroupRef.current = null;
     });
