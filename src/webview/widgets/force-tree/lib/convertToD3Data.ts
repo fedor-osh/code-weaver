@@ -3,6 +3,7 @@ import { FileStructureWithId } from "./addIds";
 export function convertToD3Data(fs: FileStructureWithId): any {
   const data: any = {
     name: fs.name,
+    path: fs.path,
     type: fs.type,
     imports: fs.imports,
     exports: fs.exports,

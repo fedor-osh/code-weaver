@@ -28,6 +28,7 @@ function formatDetailedStructure(
   if (obj.type === "file") {
     const parts: string[] = [
       `${spaces}  name: '${obj.name}',`,
+      `${spaces}  path: '${obj.path}',`,
       `${spaces}  type: '${type}',`,
     ];
 
@@ -67,10 +68,10 @@ function formatDetailedStructure(
       .map((child) => formatDetailedStructure(child, indent + 1))
       .join(",\n");
 
-    return `${spaces}{\n${spaces}  name: '${obj.name}',\n${spaces}  type: '${type}',\n${spaces}  children: [\n${childrenStr}\n${spaces}  ],\n${spaces}}`;
+    return `${spaces}{\n${spaces}  name: '${obj.name}',\n${spaces}  path: '${obj.path}',\n${spaces}  type: '${type}',\n${spaces}  children: [\n${childrenStr}\n${spaces}  ],\n${spaces}}`;
   }
 
-  return `${spaces}{\n${spaces}  name: '${obj.name}',\n${spaces}  type: '${type}',\n${spaces}  children: [],\n${spaces}}`;
+  return `${spaces}{\n${spaces}  name: '${obj.name}',\n${spaces}  path: '${obj.path}',\n${spaces}  type: '${type}',\n${spaces}  children: [],\n${spaces}}`;
 }
 
 function countItems(structure: FileStructure): {

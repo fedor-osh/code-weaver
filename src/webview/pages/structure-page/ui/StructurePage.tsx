@@ -13,6 +13,7 @@ import {
 export function StructurePage() {
   const structure: FileStructure = window.folderStructure || {
     name: "No structure",
+    path: "",
     type: "folder",
   };
 

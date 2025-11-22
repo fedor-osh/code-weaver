@@ -6,6 +6,7 @@ export type FileLanguage = "ts" | "tsx" | "js" | "jsx";
 
 export interface FileStructure {
   name: string;
+  path: string;
   type: "file" | "folder";
   language?: FileLanguage;
   imports?: ImportInfo[];
@@ -38,15 +39,20 @@ function getFileLanguage(fileName: string): FileLanguage | undefined {
 
 export function getFolderStructure(rootPath: string): FileStructure {
   const rootName = path.basename(rootPath);
+  const normalizedRootPath = path.resolve(rootPath);
 
   function scanDirectory(dirPath: string, dirName: string): FileStructure {
     const fullPath = path.join(dirPath, dirName);
     const stats = fs.statSync(fullPath);
+    const relativePath = path
+      .relative(normalizedRootPath, fullPath)
+      .replace(/\\/g, "/");
 
     if (stats.isFile()) {
       const language = getFileLanguage(dirName);
       const fileStructure: FileStructure = {
         name: dirName,
+        path: relativePath,
         type: "file",
       };
 
@@ -105,6 +111,7 @@ export function getFolderStructure(rootPath: string): FileStructure {
 
       return {
         name: dirName,
+        path: relativePath,
         type: "folder",
         children,
       };
@@ -112,6 +119,7 @@ export function getFolderStructure(rootPath: string): FileStructure {
 
     return {
       name: dirName,
+      path: relativePath,
       type: "file",
     };
   }

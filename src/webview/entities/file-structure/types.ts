@@ -14,6 +14,7 @@ export interface ExportInfo {
 
 export interface FileStructure {
   name: string;
+  path: string;
   type: "file" | "folder";
   language?: FileLanguage;
   imports?: ImportInfo[];

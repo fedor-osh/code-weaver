@@ -27,6 +27,13 @@ export function getTooltipContent(
     let content = unpinButton;
     content += `<div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${data.name}${defaultLabel}${typeLabel}</div>`;
     content += `<div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px;">From: ${data.parentFile}</div>`;
+    // Show parent file path if available
+    if (data.parentFileId && allNodesMap) {
+      const parentFileNode = allNodesMap.get(data.parentFileId);
+      if (parentFileNode && parentFileNode.data.path) {
+        content += `<div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px; word-break: break-all;">${parentFileNode.data.path}</div>`;
+      }
+    }
 
     // Show all files that import this export
     if (importExportMap) {
@@ -112,6 +119,9 @@ export function getTooltipContent(
     // Tooltip for file/folder nodes
     let content = unpinButton;
     content += `<div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${data.name}</div>`;
+    if (data.path) {
+      content += `<div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px; word-break: break-all;">${data.path}</div>`;
+    }
 
     // Show all exports from this file
     if (data.exports && data.exports.length > 0) {
