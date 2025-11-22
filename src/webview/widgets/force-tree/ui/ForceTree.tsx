@@ -8,13 +8,19 @@ interface ForceTreeProps {
 
 export function ForceTree({ structure }: ForceTreeProps) {
   const svgRef = React.useRef<SVGSVGElement>(null);
+  const [zoomLevel, setZoomLevel] = React.useState(1);
+  const zoomBehaviorRef = React.useRef<d3.ZoomBehavior<
+    SVGSVGElement,
+    unknown
+  > | null>(null);
+  const currentTransformRef = React.useRef<d3.ZoomTransform>(d3.zoomIdentity);
 
   React.useEffect(() => {
     if (!svgRef.current) return;
 
     // Clear previous content
     d3.select(svgRef.current).selectAll("*").remove();
-    
+
     // Remove any existing tooltip
     d3.select("body").selectAll(".force-tree-tooltip").remove();
 
@@ -30,9 +36,31 @@ export function ForceTree({ structure }: ForceTreeProps) {
         imports: fs.imports,
         exports: fs.exports,
       };
+
+      const children: any[] = [];
+
+      // Add folder/file children
       if (fs.children && fs.children.length > 0) {
-        data.children = fs.children.map(convertToD3Data);
+        children.push(...fs.children.map(convertToD3Data));
       }
+
+      // For file nodes, add export nodes as children
+      if (fs.type === "file" && fs.exports && fs.exports.length > 0) {
+        fs.exports.forEach((exp) => {
+          children.push({
+            name: exp.name,
+            type: "export",
+            isDefault: exp.isDefault,
+            isTypeOnly: exp.isTypeOnly,
+            parentFile: fs.name,
+          });
+        });
+      }
+
+      if (children.length > 0) {
+        data.children = children;
+      }
+
       return data;
     };
 
@@ -55,7 +83,10 @@ export function ForceTree({ structure }: ForceTreeProps) {
         d3
           .forceLink(links)
           .id((d: any) => d.id)
-          .distance(0)
+          .distance((d: any) => {
+            // Shorter distance for export nodes to their parent files
+            return d.target.data.type === "export" ? 30 : 0;
+          })
           .strength(1)
       )
       .force("charge", d3.forceManyBody().strength(-50))
@@ -69,6 +100,9 @@ export function ForceTree({ structure }: ForceTreeProps) {
       .attr("height", height)
       .attr("viewBox", [-width / 2, -height / 2, width, height])
       .attr("style", "max-width: 100%; height: auto;");
+
+    // Create a container group for zooming
+    const container = svg.append("g").attr("class", "zoom-container");
 
     // Create tooltip
     const tooltip = d3
@@ -88,13 +122,33 @@ export function ForceTree({ structure }: ForceTreeProps) {
       .style("max-width", "300px");
 
     // Append links
-    const link = svg
+    const link = container
       .append("g")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.6)
       .selectAll("line")
       .data(links)
-      .join("line");
+      .join("line")
+      .attr("stroke", (d: any) => {
+        // Different color for export links based on export type
+        if (d.target.data.type === "export") {
+          const exportData = d.target.data;
+          if (exportData.isDefault) {
+            return "#ff6b6b"; // Red for default exports
+          } else {
+            return exportData.isTypeOnly ? "#9b59b6" : "#4ecdc4"; // Purple for types, teal for objects
+          }
+        }
+        return "#999"; // Gray for folder/file links
+      })
+      .attr("stroke-opacity", (d: any) => {
+        return d.target.data.type === "export" ? 0.8 : 0.6;
+      })
+      .attr("stroke-width", (d: any) => {
+        return d.target.data.type === "export" ? 1.5 : 1;
+      })
+      .attr("stroke-dasharray", (d: any) => {
+        // Dashed line for export links
+        return d.target.data.type === "export" ? "3,3" : null;
+      });
 
     // Drag function
     const drag = (simulation: d3.Simulation<any, any>) => {
@@ -123,38 +177,73 @@ export function ForceTree({ structure }: ForceTreeProps) {
     };
 
     // Append nodes
-    const node = svg
+    const node = container
       .append("g")
-      .attr("fill", "#fff")
-      .attr("stroke", "#000")
-      .attr("stroke-width", 1.5)
       .selectAll("circle")
       .data(nodes)
       .join("circle")
-      .attr("fill", (d: any) => (d.children ? null : "#000"))
-      .attr("stroke", (d: any) => (d.children ? null : "#fff"))
-      .attr("r", 3.5)
+      .attr("fill", (d: any) => {
+        const data = d.data;
+        if (data.type === "export") {
+          if (data.isDefault) {
+            return "#ff6b6b"; // Red for default exports (same color regardless of type/object)
+          } else {
+            // Different colors for types vs objects
+            return data.isTypeOnly ? "#9b59b6" : "#4ecdc4"; // Purple for types, teal for objects
+          }
+        }
+        return d.children ? "#fff" : "#000"; // White for folders, black for files
+      })
+      .attr("stroke", (d: any) => {
+        const data = d.data;
+        if (data.type === "export") {
+          if (data.isDefault) {
+            return "#c92a2a"; // Darker red border for default exports
+          } else {
+            // Different border colors for types vs objects
+            return data.isTypeOnly ? "#7c3aed" : "#087f5b"; // Darker purple for types, darker teal for objects
+          }
+        }
+        return d.children ? "#000" : "#fff"; // Black for folders, white for files
+      })
+      .attr("stroke-width", (d: any) => {
+        return d.data.type === "export" ? 1 : 1.5;
+      })
+      .attr("r", (d: any) => {
+        return d.data.type === "export" ? 2.5 : 3.5; // Smaller radius for export nodes
+      })
       .style("cursor", "pointer")
-      .call(drag(simulation))
+      .call(drag(simulation) as any)
       .on("mouseover", function (event: any, d: any) {
         const data = d.data;
-        const importCount = data.imports?.length || 0;
-        const exportCount = data.exports?.length || 0;
+        let tooltipContent = "";
 
-        let tooltipContent = `<div style="font-weight: bold; margin-bottom: 4px;">${data.name}</div>`;
-        
-        if (importCount > 0 || exportCount > 0) {
-          tooltipContent += `<div style="font-size: 11px; opacity: 0.9;">`;
-          if (importCount > 0) {
-            tooltipContent += `Imports: ${importCount}`;
+        if (data.type === "export") {
+          // Tooltip for export nodes
+          const defaultLabel = data.isDefault ? " (default)" : "";
+          const typeLabel = data.isTypeOnly ? " [type]" : "";
+          tooltipContent = `<div style="font-weight: bold; margin-bottom: 4px;">${data.name}${defaultLabel}${typeLabel}</div>`;
+          tooltipContent += `<div style="font-size: 11px; opacity: 0.9;">From: ${data.parentFile}</div>`;
+        } else {
+          // Tooltip for file/folder nodes
+          const importCount = data.imports?.length || 0;
+          const exportCount = data.exports?.length || 0;
+
+          tooltipContent = `<div style="font-weight: bold; margin-bottom: 4px;">${data.name}</div>`;
+
+          if (importCount > 0 || exportCount > 0) {
+            tooltipContent += `<div style="font-size: 11px; opacity: 0.9;">`;
+            if (importCount > 0) {
+              tooltipContent += `Imports: ${importCount}`;
+            }
+            if (importCount > 0 && exportCount > 0) {
+              tooltipContent += " • ";
+            }
+            if (exportCount > 0) {
+              tooltipContent += `Exports: ${exportCount}`;
+            }
+            tooltipContent += `</div>`;
           }
-          if (importCount > 0 && exportCount > 0) {
-            tooltipContent += " • ";
-          }
-          if (exportCount > 0) {
-            tooltipContent += `Exports: ${exportCount}`;
-          }
-          tooltipContent += `</div>`;
         }
 
         tooltip
@@ -182,6 +271,22 @@ export function ForceTree({ structure }: ForceTreeProps) {
       node.attr("cx", (d: any) => d.x).attr("cy", (d: any) => d.y);
     });
 
+    // Set up zoom behavior
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.1, 4])
+      .on("zoom", (event) => {
+        currentTransformRef.current = event.transform;
+        container.attr("transform", event.transform.toString());
+        setZoomLevel(event.transform.k);
+      });
+
+    svg.call(zoom);
+    zoomBehaviorRef.current = zoom;
+
+    // Initialize the transform
+    currentTransformRef.current = d3.zoomIdentity;
+
     // Cleanup function
     return () => {
       simulation.stop();
@@ -189,10 +294,31 @@ export function ForceTree({ structure }: ForceTreeProps) {
     };
   }, [structure]);
 
+  const handleResetZoom = () => {
+    if (!svgRef.current || !zoomBehaviorRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const resetTransform = d3.zoomIdentity;
+    currentTransformRef.current = resetTransform;
+
+    svg
+      .transition()
+      .duration(300)
+      .call(zoomBehaviorRef.current.transform, resetTransform);
+  };
+
   return (
-    <div className="w-full overflow-auto">
+    <div className='w-full overflow-auto relative'>
       <svg ref={svgRef}></svg>
+      <div className='absolute top-4 right-4 flex flex-col gap-2 bg-white rounded-lg shadow-lg border border-gray-200 p-1 z-10'>
+        <button
+          onClick={handleResetZoom}
+          className='w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-gray-700 text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
+          title='Reset zoom'
+          disabled={zoomLevel === 1}
+        >
+          ⟲
+        </button>
+      </div>
     </div>
   );
 }
-
