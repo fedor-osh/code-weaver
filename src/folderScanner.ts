@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { parseModule, ImportInfo, ExportInfo } from "./moduleParser";
 
 export type FileLanguage = "ts" | "tsx" | "js" | "jsx";
 
@@ -7,6 +8,8 @@ export interface FileStructure {
   name: string;
   type: "file" | "folder";
   language?: FileLanguage;
+  imports?: ImportInfo[];
+  exports?: ExportInfo[];
   children?: FileStructure[];
 }
 
@@ -49,6 +52,21 @@ export function getFolderStructure(rootPath: string): FileStructure {
 
       if (language) {
         fileStructure.language = language;
+
+        // Parse module for imports and exports
+        try {
+          const moduleInfo = parseModule(fullPath);
+          if (moduleInfo) {
+            if (moduleInfo.imports.length > 0) {
+              fileStructure.imports = moduleInfo.imports;
+            }
+            if (moduleInfo.exports.length > 0) {
+              fileStructure.exports = moduleInfo.exports;
+            }
+          }
+        } catch (error) {
+          // Silently fail if parsing fails
+        }
       }
 
       return fileStructure;
