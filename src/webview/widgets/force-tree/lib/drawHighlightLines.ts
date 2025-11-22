@@ -118,37 +118,75 @@ export function drawHighlightLines(
     }
   } else if (sourceNode.data?.type === "file") {
     // Case 2: Hovering over a file node
-    // Show: file -> re-exporting files -> exports
+    // Show: file -> re-exporting files -> exports OR file -> file containing export -> export
     
     if (intermediateNodes.size > 0) {
-      // Draw lines through re-exporting files
-      intermediateNodes.forEach((reExportFileId) => {
-        const reExportFileNode = allNodes.get(reExportFileId);
-        if (!reExportFileNode) return;
-
-        // Line from file to re-exporting file
-        drawLine(sourceNode, reExportFileNode, true, 0.6);
-
-        // Find exports that this file imports through THIS specific re-exporting file
-        targetNodeIds.forEach((exportId) => {
-          const reExportToFilesMap = importExportMap?.exportToReExportToFiles?.get(exportId);
-          if (reExportToFilesMap) {
-            const importingFiles = reExportToFilesMap.get(reExportFileId);
-            if (importingFiles && importingFiles.has(sourceNode.data.id)) {
-              const exportNode = allNodes.get(exportId);
-              if (exportNode) {
-                // Line from re-exporting file to export
-                drawLine(reExportFileNode, exportNode, true, 0.6);
-              }
+      // Group exports by their intermediate node
+      const exportsByIntermediate = new Map<string, Set<string>>();
+      
+      targetNodeIds.forEach((exportId) => {
+        // Check if this export goes through a re-exporting file
+        const reExportToFilesMap = importExportMap?.exportToReExportToFiles?.get(exportId);
+        let intermediateId: string | null = null;
+        
+        if (reExportToFilesMap) {
+          // Check if any re-exporting file is in intermediateNodes and imports this file
+          reExportToFilesMap.forEach((importingFiles, reExportFileId) => {
+            if (intermediateNodes.has(reExportFileId) && importingFiles.has(sourceNode.data.id)) {
+              intermediateId = reExportFileId;
             }
+          });
+        }
+        
+        // If not through re-export, check if the file containing the export is an intermediate
+        if (!intermediateId) {
+          const exportInfo = importExportMap?.exportIdToInfo.get(exportId);
+          if (exportInfo && intermediateNodes.has(exportInfo.fileId)) {
+            intermediateId = exportInfo.fileId;
           }
-        });
+        }
+        
+        if (intermediateId) {
+          if (!exportsByIntermediate.has(intermediateId)) {
+            exportsByIntermediate.set(intermediateId, new Set());
+          }
+          exportsByIntermediate.get(intermediateId)!.add(exportId);
+        }
       });
       
-      // Draw direct imports (exports imported directly, not through re-exports)
+      // Draw lines through intermediate nodes
+      intermediateNodes.forEach((intermediateId) => {
+        const intermediateNode = allNodes.get(intermediateId);
+        if (!intermediateNode) return;
+
+        // Check if this is a re-exporting file or the file containing the export
+        const isReExportingFile = Array.from(importExportMap?.exportToReExportToFiles?.values() || [])
+          .some(map => map.has(intermediateId));
+        
+        // Line from file to intermediate node
+        drawLine(sourceNode, intermediateNode, true, 0.6);
+
+        // Draw lines from intermediate node to exports
+        const exports = exportsByIntermediate.get(intermediateId);
+        if (exports) {
+          exports.forEach((exportId) => {
+            const exportNode = allNodes.get(exportId);
+            if (exportNode) {
+              // Line from intermediate node to export
+              drawLine(intermediateNode, exportNode, true, 0.6);
+            }
+          });
+        }
+      });
+      
+      // Draw direct imports (exports imported directly, not through any intermediate)
       targetNodeIds.forEach((targetId) => {
         const reExportToFilesMap = importExportMap?.exportToReExportToFiles?.get(targetId);
+        const exportInfo = importExportMap?.exportIdToInfo.get(targetId);
+        
         let isDirectImport = true;
+        
+        // Check if it goes through a re-exporting file
         if (reExportToFilesMap) {
           reExportToFilesMap.forEach((importingFiles) => {
             if (importingFiles.has(sourceNode.data.id)) {
@@ -157,13 +195,18 @@ export function drawHighlightLines(
           });
         }
         
+        // Check if it goes through the file containing the export
+        if (isDirectImport && exportInfo && intermediateNodes.has(exportInfo.fileId)) {
+          isDirectImport = false;
+        }
+        
         if (isDirectImport) {
           const targetNode = allNodes.get(targetId);
           drawLine(sourceNode, targetNode, false, 0.8);
         }
       });
     } else {
-      // Direct imports only (no re-exports)
+      // Direct imports only (no intermediates)
       targetNodeIds.forEach((targetId) => {
         const targetNode = allNodes.get(targetId);
         drawLine(sourceNode, targetNode, false, 0.8);

@@ -65,11 +65,25 @@ export function calculateNodeRelations(
             targetNodeIds.add(exportId);
           } else {
             // Direct import (not through re-export)
-            targetNodeIds.add(exportId);
+            // For leaf exports, route through the file containing the export
+            const exportInfo = importExportMap.exportIdToInfo.get(exportId);
+            if (exportInfo) {
+              intermediateNodes.add(exportInfo.fileId);
+              targetNodeIds.add(exportId);
+            } else {
+              targetNodeIds.add(exportId);
+            }
           }
         } else {
           // Direct import (no re-exports)
-          targetNodeIds.add(exportId);
+          // For leaf exports, route through the file containing the export
+          const exportInfo = importExportMap.exportIdToInfo.get(exportId);
+          if (exportInfo) {
+            intermediateNodes.add(exportInfo.fileId);
+            targetNodeIds.add(exportId);
+          } else {
+            targetNodeIds.add(exportId);
+          }
         }
       });
     }
