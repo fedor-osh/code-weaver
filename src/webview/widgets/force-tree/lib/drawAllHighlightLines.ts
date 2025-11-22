@@ -8,12 +8,18 @@ export interface DrawAllHighlightLinesOptions {
   nodes: any[];
   allNodesMap: Map<string, any>;
   importExportMap: ImportExportMap;
+  hiddenNodes?: Set<string>;
 }
 
 export function drawAllHighlightLines(
   options: DrawAllHighlightLinesOptions
 ): d3.Selection<SVGGElement, unknown, null, undefined> | null {
-  const { container, nodes, allNodesMap, importExportMap } = options;
+  const { container, nodes, allNodesMap, importExportMap, hiddenNodes = new Set() } = options;
+
+  // Helper function to check if a node is hidden
+  const isNodeHidden = (nodeId: string | undefined): boolean => {
+    return nodeId ? hiddenNodes.has(nodeId) : false;
+  };
 
   // Remove existing highlight groups
   container.selectAll(".highlight-lines").remove();
@@ -42,6 +48,11 @@ export function drawAllHighlightLines(
   // Iterate through all nodes and draw their relations
   nodes.forEach((node) => {
     if (!node.data?.id || node.x === undefined || node.y === undefined) {
+      return;
+    }
+
+    // Skip if source node is hidden
+    if (isNodeHidden(node.data.id)) {
       return;
     }
 
@@ -129,6 +140,11 @@ export function drawAllHighlightLines(
             const importingFiles = filesByIntermediate.get(intermediateId);
             if (importingFiles) {
               importingFiles.forEach((importingFileId) => {
+                // Skip if target node is hidden
+                if (isNodeHidden(importingFileId)) {
+                  return;
+                }
+
                 const importingFileNode = allNodesMap.get(importingFileId);
                 if (
                   importingFileNode &&
@@ -282,6 +298,11 @@ export function drawAllHighlightLines(
         
         // Draw lines through intermediate nodes
         intermediateNodes.forEach((intermediateId) => {
+          // Skip if intermediate node is hidden
+          if (isNodeHidden(intermediateId)) {
+            return;
+          }
+
           const intermediateNode = allNodesMap.get(intermediateId);
           if (
             !intermediateNode ||
@@ -313,6 +334,11 @@ export function drawAllHighlightLines(
           const exports = exportsByIntermediate.get(intermediateId);
           if (exports) {
             exports.forEach((exportId) => {
+              // Skip if target export node is hidden
+              if (isNodeHidden(exportId)) {
+                return;
+              }
+
               const exportNode = allNodesMap.get(exportId);
               if (
                 exportNode &&
@@ -367,6 +393,11 @@ export function drawAllHighlightLines(
           }
 
           if (isDirectImport) {
+            // Skip if target node is hidden
+            if (isNodeHidden(targetId)) {
+              return;
+            }
+
             const targetNode = allNodesMap.get(targetId);
             if (
               targetNode &&
@@ -398,6 +429,11 @@ export function drawAllHighlightLines(
       } else {
         // Direct imports only (no intermediates)
         targetNodeIds.forEach((targetId) => {
+          // Skip if target node is hidden
+          if (isNodeHidden(targetId)) {
+            return;
+          }
+
           const targetNode = allNodesMap.get(targetId);
           if (
             targetNode &&

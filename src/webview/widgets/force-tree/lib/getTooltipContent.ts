@@ -5,18 +5,39 @@ export function getTooltipContent(
   importExportMap?: ImportExportMap,
   allNodesMap?: Map<string, any>,
   isPinned: boolean = false,
-  onUnpin?: () => void
+  onUnpin?: () => void,
+  onHide?: () => void
 ): string {
-  // Add unpin button if pinned
-  let unpinButton = "";
-  if (isPinned && onUnpin) {
-    unpinButton = `<div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.2);">
-      <button 
+  // Add action buttons if pinned
+  let actionButtons = "";
+  if (isPinned) {
+    actionButtons = `<div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.2); display: flex; gap: 8px;">`;
+    if (onUnpin) {
+      actionButtons += `<button 
         onclick="window.unpinTooltip()" 
         style="background: rgba(239, 68, 68, 0.8); color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;"
         onmouseover="this.style.background='rgba(239, 68, 68, 1)'"
         onmouseout="this.style.background='rgba(239, 68, 68, 0.8)'"
-      >Unpin</button>
+      >Unpin</button>`;
+    }
+    if (onHide) {
+      actionButtons += `<button 
+        onclick="window.hideNode('${data.id}')" 
+        style="background: rgba(156, 163, 175, 0.8); color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;"
+        onmouseover="this.style.background='rgba(156, 163, 175, 1)'"
+        onmouseout="this.style.background='rgba(156, 163, 175, 0.8)'"
+      >Hide</button>`;
+    }
+    actionButtons += `</div>`;
+  } else if (onHide) {
+    // Show hide button even when not pinned
+    actionButtons = `<div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.2);">
+      <button 
+        onclick="window.hideNode('${data.id}')" 
+        style="background: rgba(156, 163, 175, 0.8); color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;"
+        onmouseover="this.style.background='rgba(156, 163, 175, 1)'"
+        onmouseout="this.style.background='rgba(156, 163, 175, 0.8)'"
+      >Hide</button>
     </div>`;
   }
 
@@ -24,7 +45,7 @@ export function getTooltipContent(
     // Tooltip for export nodes
     const defaultLabel = data.isDefault ? " (default)" : "";
     const typeLabel = data.isTypeOnly ? " [type]" : "";
-    let content = unpinButton;
+    let content = actionButtons;
     content += `<div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${data.name}${defaultLabel}${typeLabel}</div>`;
     content += `<div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px;">From: ${data.parentFile}</div>`;
     // Show parent file path if available
@@ -117,7 +138,7 @@ export function getTooltipContent(
     return content;
   } else {
     // Tooltip for file/folder nodes
-    let content = unpinButton;
+    let content = actionButtons;
     content += `<div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${data.name}</div>`;
     if (data.path) {
       content += `<div style="font-size: 11px; opacity: 0.9; margin-bottom: 8px; word-break: break-all;">${data.path}</div>`;

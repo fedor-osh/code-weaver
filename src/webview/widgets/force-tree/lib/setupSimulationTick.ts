@@ -6,7 +6,8 @@ export function setupSimulationTick(
   link: d3.Selection<d3.BaseType | SVGLineElement, any, SVGGElement, unknown>,
   node: d3.Selection<d3.BaseType | SVGCircleElement, any, SVGGElement, unknown>,
   highlightGroupRef?: React.MutableRefObject<d3.Selection<SVGGElement, unknown, null, undefined> | null>,
-  allRelationsGroupRef?: React.MutableRefObject<d3.Selection<SVGGElement, unknown, null, undefined> | null>
+  allRelationsGroupRef?: React.MutableRefObject<d3.Selection<SVGGElement, unknown, null, undefined> | null>,
+  hiddenNodes?: Set<string>
 ) {
   simulation.on("tick", () => {
     link
@@ -15,7 +16,9 @@ export function setupSimulationTick(
       .attr("x2", (d: any) => d.target.x)
       .attr("y2", (d: any) => d.target.y);
 
-    node.attr("cx", (d: any) => d.x).attr("cy", (d: any) => d.y);
+    node
+      .attr("cx", (d: any) => d.x)
+      .attr("cy", (d: any) => d.y);
 
     // Update highlight lines positions if they exist
     if (highlightGroupRef?.current) {

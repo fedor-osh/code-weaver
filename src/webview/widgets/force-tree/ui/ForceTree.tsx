@@ -29,6 +29,7 @@ export function ForceTree({ structure }: ForceTreeProps) {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [zoomLevel, setZoomLevel] = React.useState(1);
   const [showAllRelations, setShowAllRelations] = React.useState(false);
+  const [hiddenNodes, setHiddenNodes] = React.useState<Set<string>>(new Set());
   const zoomBehaviorRef = React.useRef<d3.ZoomBehavior<
     SVGSVGElement,
     unknown
@@ -61,6 +62,18 @@ export function ForceTree({ structure }: ForceTreeProps) {
     unknown,
     null,
     undefined
+  > | null>(null);
+  const linkRef = React.useRef<d3.Selection<
+    d3.BaseType | SVGLineElement,
+    any,
+    SVGGElement,
+    unknown
+  > | null>(null);
+  const nodeRef = React.useRef<d3.Selection<
+    d3.BaseType | SVGCircleElement,
+    any,
+    SVGGElement,
+    unknown
   > | null>(null);
 
   React.useEffect(() => {
@@ -122,8 +135,49 @@ export function ForceTree({ structure }: ForceTreeProps) {
     };
     (window as any).unpinTooltip = handleUnpin;
 
+    // Helper function to get all descendant node IDs (including the node itself)
+    const getAllDescendantIds = (nodeId: string): Set<string> => {
+      const node = allNodesMap.get(nodeId);
+      if (!node) return new Set([nodeId]);
+
+      const descendantIds = new Set<string>([nodeId]);
+
+      // Use d3.hierarchy's descendants() method to get all children recursively
+      if (node.descendants) {
+        node.descendants().forEach((descendant: any) => {
+          if (descendant.data.id) {
+            descendantIds.add(descendant.data.id);
+          }
+        });
+      }
+
+      return descendantIds;
+    };
+
+    // Setup global hide function for button click
+    const handleHide = (nodeId: string) => {
+      // Get all descendant IDs including the node itself
+      const idsToHide = getAllDescendantIds(nodeId);
+
+      setHiddenNodes((prev) => {
+        const newSet = new Set(prev);
+        idsToHide.forEach((id) => newSet.add(id));
+        return newSet;
+      });
+
+      // Unpin if hiding the pinned node or any of its descendants
+      if (
+        pinnedNodeRef.current &&
+        idsToHide.has(pinnedNodeRef.current.data.id)
+      ) {
+        handleUnpin();
+      }
+    };
+    (window as any).hideNode = handleHide;
+
     // Create links
-    const link = createLinks(container, links);
+    const link = createLinks(container, links, hiddenNodes);
+    linkRef.current = link;
 
     // Create nodes with import/export map
     const node = createNodes({
@@ -136,7 +190,10 @@ export function ForceTree({ structure }: ForceTreeProps) {
       highlightGroupRef,
       pinnedNodeRef,
       onUnpin: handleUnpin,
+      onHide: handleHide,
+      hiddenNodes,
     });
+    nodeRef.current = node;
 
     // Setup simulation tick handler
     setupSimulationTick(
@@ -144,7 +201,8 @@ export function ForceTree({ structure }: ForceTreeProps) {
       link,
       node,
       highlightGroupRef,
-      allRelationsGroupRef
+      allRelationsGroupRef,
+      hiddenNodes
     );
 
     // Setup zoom behavior
@@ -163,9 +221,32 @@ export function ForceTree({ structure }: ForceTreeProps) {
       highlightGroupRef.current = null;
       allRelationsGroupRef.current = null;
       pinnedNodeRef.current = null;
+      linkRef.current = null;
+      nodeRef.current = null;
       delete (window as any).unpinTooltip;
+      delete (window as any).hideNode;
     };
-  }, [structure]);
+  }, [structure, hiddenNodes]);
+
+  // Update links and nodes visibility when hiddenNodes changes
+  React.useEffect(() => {
+    if (!linkRef.current || !nodeRef.current) return;
+
+    // Update links opacity
+    linkRef.current.attr("stroke-opacity", (d: any) => {
+      const isHidden =
+        hiddenNodes.has(d.source.data.id) || hiddenNodes.has(d.target.data.id);
+      if (isHidden) return 0;
+      return d.target.data.type === "export" ? 0.8 : 0.6;
+    });
+
+    // Update nodes opacity
+    nodeRef.current
+      .style("opacity", (d: any) => (hiddenNodes.has(d.data.id) ? 0 : 1))
+      .style("pointer-events", (d: any) =>
+        hiddenNodes.has(d.data.id) ? "none" : "auto"
+      );
+  }, [hiddenNodes]);
 
   // Handle show all relations toggle
   React.useEffect(() => {
@@ -179,6 +260,7 @@ export function ForceTree({ structure }: ForceTreeProps) {
           nodes: nodesRef.current,
           allNodesMap: allNodesMapRef.current,
           importExportMap: importExportMapRef.current,
+          hiddenNodes,
         });
       };
 
@@ -198,7 +280,7 @@ export function ForceTree({ structure }: ForceTreeProps) {
       removeHighlightLines(allRelationsGroupRef.current);
       allRelationsGroupRef.current = null;
     }
-  }, [showAllRelations]);
+  }, [showAllRelations, hiddenNodes]);
 
   const handleResetZoom = () => {
     if (!svgRef.current || !zoomBehaviorRef.current) return;
@@ -211,6 +293,44 @@ export function ForceTree({ structure }: ForceTreeProps) {
       .duration(300)
       .call(zoomBehaviorRef.current.transform, resetTransform);
   };
+
+  const handleShowNode = (nodeId: string) => {
+    // Get all descendant IDs including the node itself
+    const node = allNodesMapRef.current.get(nodeId);
+    if (!node) return;
+
+    const idsToShow = new Set<string>([nodeId]);
+
+    // Use d3.hierarchy's descendants() method to get all children recursively
+    if (node.descendants) {
+      node.descendants().forEach((descendant: any) => {
+        if (descendant.data.id) {
+          idsToShow.add(descendant.data.id);
+        }
+      });
+    }
+
+    setHiddenNodes((prev) => {
+      const newSet = new Set(prev);
+      idsToShow.forEach((id) => newSet.delete(id));
+      return newSet;
+    });
+  };
+
+  // Get hidden node names for display
+  const hiddenNodeNames = React.useMemo(() => {
+    const names: Array<{ id: string; name: string }> = [];
+    hiddenNodes.forEach((nodeId) => {
+      const node = allNodesMapRef.current.get(nodeId);
+      if (node) {
+        names.push({
+          id: nodeId,
+          name: node.data.name || node.data.path || nodeId,
+        });
+      }
+    });
+    return names;
+  }, [hiddenNodes]);
 
   return (
     <div className='w-full overflow-auto relative'>
@@ -238,6 +358,43 @@ export function ForceTree({ structure }: ForceTreeProps) {
           </span>
         </label>
       </div>
+      {hiddenNodeNames.length > 0 && (
+        <div className='absolute bottom-4 left-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 z-10 max-w-md'>
+          <div className='text-xs font-semibold text-gray-700 mb-2'>
+            Hidden Nodes:
+          </div>
+          <div className='flex flex-wrap gap-2 max-h-56 overflow-y-auto'>
+            {hiddenNodeNames.map(({ id, name }) => (
+              <div
+                key={id}
+                className='inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full border border-gray-300'
+              >
+                <span className='max-w-[200px] truncate'>{name}</span>
+                <button
+                  onClick={() => handleShowNode(id)}
+                  className='ml-1 hover:bg-gray-200 rounded-full p-0.5 transition-colors'
+                  title='Show node'
+                >
+                  <svg
+                    xmlns='http://www.w3.org/2000/svg'
+                    className='h-3 w-3'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    stroke='currentColor'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M6 18L18 6M6 6l12 12'
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

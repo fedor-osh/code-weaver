@@ -21,6 +21,8 @@ export interface CreateNodesOptions {
   highlightGroupRef: React.MutableRefObject<d3.Selection<SVGGElement, unknown, null, undefined> | null>;
   pinnedNodeRef: React.MutableRefObject<any>;
   onUnpin: () => void;
+  onHide?: (nodeId: string) => void;
+  hiddenNodes?: Set<string>;
 }
 
 export function createNodes(options: CreateNodesOptions) {
@@ -34,6 +36,8 @@ export function createNodes(options: CreateNodesOptions) {
     highlightGroupRef,
     pinnedNodeRef,
     onUnpin,
+    onHide,
+    hiddenNodes = new Set(),
   } = options;
 
   const drag = createDragBehavior(simulation);
@@ -48,6 +52,8 @@ export function createNodes(options: CreateNodesOptions) {
     .attr("stroke-width", (d: any) => getNodeStrokeWidth(d.data))
     .attr("r", (d: any) => getNodeRadius(d.data))
     .style("cursor", "pointer")
+    .style("opacity", (d: any) => (hiddenNodes.has(d.data.id) ? 0 : 1))
+    .style("pointer-events", (d: any) => (hiddenNodes.has(d.data.id) ? "none" : "auto"))
     .call(drag as any)
     .on("mouseover", function (event: any, d: any) {
       // Don't update tooltip if another node is pinned
@@ -56,7 +62,7 @@ export function createNodes(options: CreateNodesOptions) {
       }
 
       const isPinned = pinnedNodeRef.current?.data.id === d.data.id;
-      const content = getTooltipContent(d.data, importExportMap, allNodesMap, isPinned, onUnpin);
+      const content = getTooltipContent(d.data, importExportMap, allNodesMap, isPinned, onUnpin, onHide);
       tooltip
         .html(content)
         .style("opacity", 1)
@@ -111,7 +117,7 @@ export function createNodes(options: CreateNodesOptions) {
       } else {
         // Pin this node
         pinnedNodeRef.current = d;
-        const content = getTooltipContent(d.data, importExportMap, allNodesMap, true, onUnpin);
+        const content = getTooltipContent(d.data, importExportMap, allNodesMap, true, onUnpin, onHide);
         tooltip
           .html(content)
           .style("opacity", 1)
