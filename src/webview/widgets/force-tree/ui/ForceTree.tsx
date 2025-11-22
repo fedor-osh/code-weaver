@@ -1,8 +1,10 @@
 import * as React from "react";
 import * as d3 from "d3";
 import { FileStructure } from "../../../entities/file-structure/types";
+import { addIdsToStructure, resetIdCounter } from "../lib/addIds";
 import { convertToD3Data } from "../lib/convertToD3Data";
 import { createHierarchy } from "../lib/createHierarchy";
+import { buildImportExportMap } from "../lib/buildImportExportMap";
 import { createForceSimulation } from "../lib/createForceSimulation";
 import { createSvg } from "../lib/createSvg";
 import { createTooltip } from "../lib/createTooltip";
@@ -29,16 +31,40 @@ export function ForceTree({ structure }: ForceTreeProps) {
     unknown
   > | null>(null);
   const currentTransformRef = React.useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const highlightGroupRef = React.useRef<d3.Selection<
+    SVGGElement,
+    unknown,
+    null,
+    undefined
+  > | null>(null);
 
   React.useEffect(() => {
     if (!svgRef.current) return;
 
+    // Reset ID counter for consistent IDs
+    resetIdCounter();
+
     // Cleanup previous render
     cleanup(svgRef.current, null, null);
+    highlightGroupRef.current = null;
+
+    // Add IDs to structure
+    const structureWithIds = addIdsToStructure(structure);
+
+    // Build import/export relationship map
+    const importExportMap = buildImportExportMap(structureWithIds);
 
     // Convert data structure
-    const data = convertToD3Data(structure);
+    const data = convertToD3Data(structureWithIds);
     const { links, nodes } = createHierarchy(data);
+
+    // Create a map of all nodes by ID for quick lookup
+    const allNodesMap = new Map<string, any>();
+    nodes.forEach((node: any) => {
+      if (node.data.id) {
+        allNodesMap.set(node.data.id, node);
+      }
+    });
 
     // Create force simulation
     const simulation = createForceSimulation(nodes, links);
@@ -52,11 +78,19 @@ export function ForceTree({ structure }: ForceTreeProps) {
     // Create links
     const link = createLinks(container, links);
 
-    // Create nodes
-    const node = createNodes(container, nodes, simulation, tooltip);
+    // Create nodes with import/export map
+    const node = createNodes({
+      container,
+      nodes,
+      simulation,
+      tooltip,
+      importExportMap,
+      allNodesMap,
+      highlightGroupRef,
+    });
 
     // Setup simulation tick handler
-    setupSimulationTick(simulation, link, node);
+    setupSimulationTick(simulation, link, node, highlightGroupRef);
 
     // Setup zoom behavior
     const zoom = createZoomBehavior(svg, container, {
@@ -71,6 +105,7 @@ export function ForceTree({ structure }: ForceTreeProps) {
     // Cleanup function
     return () => {
       cleanup(svgRef.current!, simulation, tooltip);
+      highlightGroupRef.current = null;
     };
   }, [structure]);
 

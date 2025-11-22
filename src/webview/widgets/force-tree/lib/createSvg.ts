@@ -1,4 +1,5 @@
 import * as d3 from "d3";
+import { createArrowMarker } from "./drawHighlightLines";
 
 export interface SvgConfig {
   width: number;
@@ -20,6 +21,9 @@ export function createSvg(
     .attr("height", height)
     .attr("viewBox", [-width / 2, -height / 2, width, height])
     .attr("style", "max-width: 100%; height: auto;");
+
+  // Create arrow marker for highlight lines
+  createArrowMarker(svg);
 
   const container = svg.append("g").attr("class", "zoom-container");
 

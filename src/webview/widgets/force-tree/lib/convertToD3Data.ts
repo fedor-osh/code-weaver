@@ -1,11 +1,12 @@
-import { FileStructure } from "../../../entities/file-structure/types";
+import { FileStructureWithId } from "./addIds";
 
-export function convertToD3Data(fs: FileStructure): any {
+export function convertToD3Data(fs: FileStructureWithId): any {
   const data: any = {
     name: fs.name,
     type: fs.type,
     imports: fs.imports,
     exports: fs.exports,
+    id: fs.id, // Preserve the ID
   };
 
   const children: any[] = [];
@@ -18,12 +19,15 @@ export function convertToD3Data(fs: FileStructure): any {
   // For file nodes, add export nodes as children
   if (fs.type === "file" && fs.exports && fs.exports.length > 0) {
     fs.exports.forEach((exp) => {
+      const exportId = `${fs.id}-export-${exp.name}`;
       children.push({
         name: exp.name,
         type: "export",
         isDefault: exp.isDefault,
         isTypeOnly: exp.isTypeOnly,
         parentFile: fs.name,
+        parentFileId: fs.id,
+        id: exportId, // Add ID for export nodes
       });
     });
   }
