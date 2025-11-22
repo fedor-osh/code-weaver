@@ -120,10 +120,10 @@ export function buildImportExportMap(
   };
 
   // First pass: collect all files and exports
-  function collectFilesAndExports(fs: FileStructureWithId, path: string = "") {
-    const filePath = path ? `${path}/${fs.name}` : fs.name;
-
+  function collectFilesAndExports(fs: FileStructureWithId) {
     if (fs.type === "file") {
+      // Use the actual path field from the structure
+      const filePath = fs.path;
       allFiles.set(filePath, fs);
       map.filePathToId.set(filePath, fs.id);
 
@@ -164,7 +164,7 @@ export function buildImportExportMap(
 
     if (fs.children) {
       fs.children.forEach((child) => {
-        collectFilesAndExports(child, filePath);
+        collectFilesAndExports(child);
       });
     }
   }
@@ -172,10 +172,10 @@ export function buildImportExportMap(
   collectFilesAndExports(structure);
 
   // Second pass: build relationships
-  function buildRelationships(fs: FileStructureWithId, path: string = "") {
-    const filePath = path ? `${path}/${fs.name}` : fs.name;
-
+  function buildRelationships(fs: FileStructureWithId) {
     if (fs.type === "file" && fs.imports) {
+      // Use the actual path field from the structure
+      const filePath = fs.path;
       const fileExports = new Set<string>();
 
       fs.imports.forEach((imp) => {
@@ -316,7 +316,7 @@ export function buildImportExportMap(
 
     if (fs.children) {
       fs.children.forEach((child) => {
-        buildRelationships(child, filePath);
+        buildRelationships(child);
       });
     }
   }
@@ -324,10 +324,10 @@ export function buildImportExportMap(
   buildRelationships(structure);
 
   // Third pass: handle re-exports - link original exports through re-exporting files
-  function processReExports(fs: FileStructureWithId, path: string = "") {
-    const filePath = path ? `${path}/${fs.name}` : fs.name;
-
+  function processReExports(fs: FileStructureWithId) {
     if (fs.type === "file") {
+      // Use the actual path field from the structure
+      const filePath = fs.path;
       const reExports = map.reExports.get(fs.id);
       if (reExports) {
         reExports.forEach((reExport) => {
@@ -403,7 +403,7 @@ export function buildImportExportMap(
 
     if (fs.children) {
       fs.children.forEach((child) => {
-        processReExports(child, filePath);
+        processReExports(child);
       });
     }
   }
@@ -411,13 +411,10 @@ export function buildImportExportMap(
   processReExports(structure);
 
   // Fourth pass: link re-exported items to their final importers
-  function linkReExportsToImporters(
-    fs: FileStructureWithId,
-    path: string = ""
-  ) {
-    const filePath = path ? `${path}/${fs.name}` : fs.name;
-
+  function linkReExportsToImporters(fs: FileStructureWithId) {
     if (fs.type === "file" && fs.imports) {
+      // Use the actual path field from the structure
+      const filePath = fs.path;
       fs.imports.forEach((imp) => {
         const candidatePaths = resolveImportPath(imp.from, filePath);
 
@@ -455,7 +452,7 @@ export function buildImportExportMap(
             reExports.forEach((reExport) => {
               const candidatePaths = resolveImportPath(
                 reExport.from,
-                importedFile!.name
+                importedFile!.path
               );
 
               let sourceFile: FileStructureWithId | undefined;
@@ -532,7 +529,7 @@ export function buildImportExportMap(
 
     if (fs.children) {
       fs.children.forEach((child) => {
-        linkReExportsToImporters(child, filePath);
+        linkReExportsToImporters(child);
       });
     }
   }
