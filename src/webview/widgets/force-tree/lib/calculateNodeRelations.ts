@@ -17,6 +17,10 @@ export function calculateNodeRelations(
     // If it's an export node, find all files that import it (directly or through re-exports)
     const files = importExportMap.exportToFiles.get(nodeId);
     if (files) {
+      // Get the file that contains this export
+      const exportInfo = importExportMap.exportIdToInfo.get(nodeId);
+      const fileContainingExport = exportInfo?.fileId;
+      
       // Check if there are re-exporting files and track which files import through which re-exporting file
       const reExportToFilesMap = importExportMap.exportToReExportToFiles?.get(nodeId);
       if (reExportToFilesMap && reExportToFilesMap.size > 0) {
@@ -35,11 +39,18 @@ export function calculateNodeRelations(
             }
           });
           if (!importsThroughReExport) {
+            // For direct imports, route through the file containing the export
+            if (fileContainingExport) {
+              intermediateNodes.add(fileContainingExport);
+            }
             targetNodeIds.add(fileId);
           }
         });
       } else {
-        // Direct imports only
+        // Direct imports only - route through the file containing the export
+        if (fileContainingExport) {
+          intermediateNodes.add(fileContainingExport);
+        }
         files.forEach((fileId) => targetNodeIds.add(fileId));
       }
     }

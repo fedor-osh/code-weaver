@@ -48,43 +48,78 @@ export function drawAllHighlightLines(
     // Draw lines for this node's relations
     // We'll use the existing drawHighlightLines logic but accumulate into the same group
     if (node.data?.type === "export") {
+      // Get the file that contains this export
+      const exportInfo = importExportMap.exportIdToInfo.get(node.data.id);
+      const fileContainingExport = exportInfo?.fileId;
       const reExportToFilesMap = importExportMap.exportToReExportToFiles?.get(
         node.data.id
       );
 
       if (intermediateNodes.size > 0) {
-        // Draw lines through re-exporting files
-        intermediateNodes.forEach((reExportFileId) => {
-          const reExportFileNode = allNodesMap.get(reExportFileId);
+        // Group importing files by their intermediate node
+        const filesByIntermediate = new Map<string, Set<string>>();
+        
+        targetNodeIds.forEach((importingFileId) => {
+          // Check if this file imports through a re-exporting file
+          let intermediateId: string | null = null;
+          
+          if (reExportToFilesMap) {
+            reExportToFilesMap.forEach((importingFiles, reExportFileId) => {
+              if (importingFiles.has(importingFileId) && intermediateNodes.has(reExportFileId)) {
+                intermediateId = reExportFileId;
+              }
+            });
+          }
+          
+          // If not through re-export, check if it goes through the file containing the export
+          if (!intermediateId && fileContainingExport && intermediateNodes.has(fileContainingExport)) {
+            intermediateId = fileContainingExport;
+          }
+          
+          if (intermediateId) {
+            if (!filesByIntermediate.has(intermediateId)) {
+              filesByIntermediate.set(intermediateId, new Set());
+            }
+            filesByIntermediate.get(intermediateId)!.add(importingFileId);
+          }
+        });
+        
+        // Draw lines through intermediate nodes
+        intermediateNodes.forEach((intermediateId) => {
+          const intermediateNode = allNodesMap.get(intermediateId);
           if (
-            !reExportFileNode ||
-            reExportFileNode.x === undefined ||
-            reExportFileNode.y === undefined
+            !intermediateNode ||
+            intermediateNode.x === undefined ||
+            intermediateNode.y === undefined
           )
             return;
 
-          // Line from export to re-exporting file
-          const key1 = getLineKey(node.data.id, reExportFileId);
-          if (!drawnLines.has(key1)) {
-            drawnLines.add(key1);
-            highlight
-              .append("line")
-              .datum({ source: node, target: reExportFileNode })
-              .attr("x1", node.x)
-              .attr("y1", node.y)
-              .attr("x2", reExportFileNode.x)
-              .attr("y2", reExportFileNode.y)
-              .attr("stroke", "#ef4444")
-              .attr("stroke-width", 2)
-              .attr("stroke-opacity", 0.6)
-              .attr("stroke-dasharray", "4,4")
-              .attr("marker-end", "url(#arrowhead-red)")
-              .style("filter", "drop-shadow(0 0 2px rgba(239, 68, 68, 0.36))");
-          }
+          // Check if this is a re-exporting file or the file containing the export
+          const isReExportingFile = reExportToFilesMap ? reExportToFilesMap.has(intermediateId) : false;
+          const isFileContainingExport = intermediateId === fileContainingExport;
 
-          // Find files that import this export through THIS specific re-exporting file
-          if (reExportToFilesMap) {
-            const importingFiles = reExportToFilesMap.get(reExportFileId);
+          if (isReExportingFile || isFileContainingExport) {
+            // Line from export to intermediate node
+            const key1 = getLineKey(node.data.id, intermediateId);
+            if (!drawnLines.has(key1)) {
+              drawnLines.add(key1);
+              highlight
+                .append("line")
+                .datum({ source: node, target: intermediateNode })
+                .attr("x1", node.x)
+                .attr("y1", node.y)
+                .attr("x2", intermediateNode.x)
+                .attr("y2", intermediateNode.y)
+                .attr("stroke", "#ef4444")
+                .attr("stroke-width", 2)
+                .attr("stroke-opacity", 0.6)
+                .attr("stroke-dasharray", "4,4")
+                .attr("marker-end", "url(#arrowhead-red)")
+                .style("filter", "drop-shadow(0 0 2px rgba(239, 68, 68, 0.36))");
+            }
+
+            // Draw lines from intermediate node to importing files
+            const importingFiles = filesByIntermediate.get(intermediateId);
             if (importingFiles) {
               importingFiles.forEach((importingFileId) => {
                 const importingFileNode = allNodesMap.get(importingFileId);
@@ -93,17 +128,17 @@ export function drawAllHighlightLines(
                   importingFileNode.x !== undefined &&
                   importingFileNode.y !== undefined
                 ) {
-                  const key2 = getLineKey(reExportFileId, importingFileId);
+                  const key2 = getLineKey(intermediateId, importingFileId);
                   if (!drawnLines.has(key2)) {
                     drawnLines.add(key2);
                     highlight
                       .append("line")
                       .datum({
-                        source: reExportFileNode,
+                        source: intermediateNode,
                         target: importingFileNode,
                       })
-                      .attr("x1", reExportFileNode.x)
-                      .attr("y1", reExportFileNode.y)
+                      .attr("x1", intermediateNode.x)
+                      .attr("y1", intermediateNode.y)
                       .attr("x2", importingFileNode.x)
                       .attr("y2", importingFileNode.y)
                       .attr("stroke", "#ef4444")
@@ -122,15 +157,25 @@ export function drawAllHighlightLines(
           }
         });
 
-        // Draw direct imports (files that import directly, not through re-exports)
+        // Draw direct imports (files that import directly, not through any intermediate)
         targetNodeIds.forEach((targetId) => {
+          // Check if this is a direct import (not through any intermediate)
           let isDirectImport = true;
+          
           if (reExportToFilesMap) {
             reExportToFilesMap.forEach((importingFiles) => {
               if (importingFiles.has(targetId)) {
                 isDirectImport = false;
               }
             });
+          }
+          
+          if (isDirectImport && fileContainingExport && intermediateNodes.has(fileContainingExport)) {
+            // Check if this file is in the filesByIntermediate for the file containing export
+            const filesForFileContainingExport = filesByIntermediate.get(fileContainingExport);
+            if (filesForFileContainingExport && filesForFileContainingExport.has(targetId)) {
+              isDirectImport = false;
+            }
           }
 
           if (isDirectImport) {
@@ -163,7 +208,7 @@ export function drawAllHighlightLines(
           }
         });
       } else {
-        // Direct imports only (no re-exports)
+        // Direct imports only (no intermediates)
         targetNodeIds.forEach((targetId) => {
           const targetNode = allNodesMap.get(targetId);
           if (
