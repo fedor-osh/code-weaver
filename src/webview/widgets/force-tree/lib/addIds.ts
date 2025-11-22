@@ -13,11 +13,13 @@ export function addIdsToStructure(
 ): FileStructureWithId {
   const currentPath = parentPath ? `${parentPath}/${fs.name}` : fs.name;
   const id = `file-${idCounter++}`;
-  
+
   const result: FileStructureWithId = {
     ...fs,
     id,
-    children: fs.children?.map((child) => addIdsToStructure(child, currentPath)),
+    children: fs.children?.map((child) =>
+      addIdsToStructure(child, currentPath)
+    ),
   };
 
   return result;
@@ -26,4 +28,3 @@ export function addIdsToStructure(
 export function resetIdCounter() {
   idCounter = 0;
 }
-

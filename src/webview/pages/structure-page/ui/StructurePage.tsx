@@ -18,6 +18,17 @@ export function StructurePage() {
 
   return (
     <div className='mx-auto p-6 space-y-6'>
+      <div className='w-full'>
+        <Card>
+          <CardHeader>
+            <CardTitle>Force-Directed Tree Chart</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ForceTree structure={structure} />
+          </CardContent>
+        </Card>
+      </div>
+
       <div className='flex flex-col lg:flex-row gap-6'>
         <div className='lg:w-1/2'>
           <Card>
@@ -34,16 +45,6 @@ export function StructurePage() {
         <div className='lg:w-1/2'>
           <CodeViewer structure={structure} />
         </div>
-      </div>
-      <div className='w-full'>
-        <Card>
-          <CardHeader>
-            <CardTitle>Force-Directed Tree Chart</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ForceTree structure={structure} />
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
