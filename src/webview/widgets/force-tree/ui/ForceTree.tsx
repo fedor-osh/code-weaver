@@ -72,8 +72,13 @@ export function ForceTree({ structure }: ForceTreeProps) {
     // Create SVG and container
     const { svg, container } = createSvg(svgRef.current, CHART_CONFIG);
 
-    // Create tooltip
-    const tooltip = createTooltip();
+    // Create tooltip positioned at bottom center
+    const containerElement = svgRef.current.parentElement;
+    const tooltip = createTooltip({
+      containerElement: containerElement!,
+      chartWidth: CHART_CONFIG.width,
+      chartHeight: CHART_CONFIG.height,
+    });
 
     // Create links
     const link = createLinks(container, links);

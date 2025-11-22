@@ -48,9 +48,7 @@ export function createNodes(options: CreateNodesOptions) {
       const content = getTooltipContent(d.data);
       tooltip
         .html(content)
-        .style("opacity", 1)
-        .style("left", event.pageX + 10 + "px")
-        .style("top", event.pageY - 10 + "px");
+        .style("opacity", 1);
 
       // Draw highlight lines based on node type
       const nodeId = d.data.id;
@@ -82,10 +80,6 @@ export function createNodes(options: CreateNodesOptions) {
       }
     })
     .on("mousemove", function (event: any, d: any) {
-      tooltip
-        .style("left", event.pageX + 10 + "px")
-        .style("top", event.pageY - 10 + "px");
-
       // Update highlight lines position
       const nodeId = d.data.id;
       let targetNodeIds: Set<string> = new Set();
