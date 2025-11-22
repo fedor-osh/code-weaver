@@ -7,7 +7,8 @@ export function getNodeFillColor(data: any, hasChildren: boolean): string {
       return data.isTypeOnly ? "#9b59b6" : "#4ecdc4"; // Purple for types, teal for objects
     }
   }
-  return hasChildren ? "#fff" : "#000"; // White for folders, black for files
+  // Folders: hollow (no fill), Files: filled black
+  return data.type === "folder" ? "none" : "#000";
 }
 
 export function getNodeStrokeColor(data: any, hasChildren: boolean): string {
@@ -19,7 +20,8 @@ export function getNodeStrokeColor(data: any, hasChildren: boolean): string {
       return data.isTypeOnly ? "#7c3aed" : "#087f5b"; // Darker purple for types, darker teal for objects
     }
   }
-  return hasChildren ? "#000" : "#fff"; // Black for folders, white for files
+  // Folders: black stroke for hollow circles, Files: black stroke for filled circles
+  return "#000";
 }
 
 export function getNodeRadius(data: any): number {
@@ -27,6 +29,10 @@ export function getNodeRadius(data: any): number {
 }
 
 export function getNodeStrokeWidth(data: any): number {
-  return data.type === "export" ? 1 : 1.5;
+  if (data.type === "export") {
+    return 1;
+  }
+  // Folders: thicker stroke for visibility (hollow circles), Files: thinner stroke (filled circles)
+  return data.type === "folder" ? 1.5 : 1;
 }
 
