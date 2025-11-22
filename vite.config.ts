@@ -3,13 +3,15 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
   plugins: [react()],
   build: {
     outDir: "out/webview",
     emptyOutDir: true,
     rollupOptions: {
-      input: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "src/webview/index.html"),
+      input: path.resolve(__dirname, "src/webview/index.html"),
       output: {
         entryFileNames: "webview.js",
         assetFileNames: (assetInfo) => {
@@ -23,8 +25,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(path.dirname(fileURLToPath(import.meta.url)), "src"),
+      "@": path.resolve(__dirname, "src/webview"),
     },
+  },
+  css: {
+    postcss: path.resolve(__dirname, "postcss.config.cjs"),
   },
 });
 
